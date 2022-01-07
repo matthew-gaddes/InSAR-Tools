@@ -11,7 +11,8 @@ A collection of functions for plotting synthetic interferograms
 #%%
 
 
-def plot_points_interest(r3_data, points_interest, baselines_cs, acq_dates, title = '', ylabel = 'm'):
+def plot_points_interest(r3_data, points_interest, baselines_cs, acq_dates, title = '', ylabel = 'm',
+                         ylims = None):
     """ Given rank 3 data of incremental interferograms (e.g. n_images x height x width) and some points of interest (e.g. an xy pair), plot the cumulative time
     series for those points (i.e. as r3 is incremental, summing is done in the function).  Also information is required (baselines and acq_dates) for the x axis of the plot.  
     
@@ -54,6 +55,9 @@ def plot_points_interest(r3_data, points_interest, baselines_cs, acq_dates, titl
         ax.scatter(baselines_cs, np.cumsum(r3_data[:,value[1], value[0]]), label = key)              # plot each of hte points.  
     ax.plot(baselines_cs, y_highlands_predict, c='k', label = 'Sinusoid + linear')                          # plot the line of best fit.  
     ax.legend()
+    
+    if ylims is not None:
+        ax.set_ylim(bottom = ylims['bottom'], top = ylims['top'])
     
     
     start, end = ax.get_xlim()

@@ -137,6 +137,8 @@ def open_gacos_data(gacos_dir, lons_mg_new = None, lats_mg_new = None):
     
     # 1: get the height and width from a .rsc (resource) file
     rsc_files = glob.glob(str(gacos_dir / '*.rsc'))                                                                              # 
+    if len(rsc_files) == 0:
+        raise Exception(f"Unable to find any GACOS .rsc files so exiting.  Perhaps the path to the GACOS directory is wrong?     ")
     width, height, lons_mg, lats_mg = width_height_from_gacos_rsc(rsc_files[0])
 
     # 2: open the gacos binary files and create a data cube of these.  
