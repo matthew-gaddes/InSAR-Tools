@@ -1,13 +1,55 @@
 # -*- coding: utf-8 -*-
 """
- A selection of functions for helping to work with LiCSAR
-
-Common paths:
-path = '/nfs/a1/homes/eemeg/galapagos_from_asf_v2/'                 # path to the SLC files
-path = '/nfs/a1/homes/eemeg/data_etna_from_asf/'                 # path to the SLC files
-
 """
 
+#%%
+
+def cum_to_vel(cumulative_r3, baselines_cs, fix_0 = True):
+    """ Given a rank 3 of cumulative displacements, solve for the velocity (a rank 2),
+    and the smoothed cumulative displacements (i.e. the velocity * temporal baseline for each ifg.  Assumes constant velocity through time!
+    Inputs:
+        cumulative_r3 | rank 3 masked array | cumulative displacments, for each acquisition.  All 0 on first entry.  
+        baselines_cs | rank 1 | cuulative temporal baselines, in days.  e.g. 0,6,12,18, 24 if acquisition every 6 days.  
+        fix_0 | boolean | If True, lines that is fit through time series of each point must pass through 0 at start.  
+                          If false, y intercept ('c') is also solved for.  
+    Returns:
+        vel_r2 | rank 2 masked array | velocity for each pixel
+        cumulative_r3_smooth | rank 3 masked array | cumulative displacement for each pixel, assuming constant velocity in time.  
+    History:
+        2022_02_02 | MEG | Written.  
+       """
+    from scipy.optimize import curve_fit
+    import numpy as np
+    import numpy.ma as ma
+    
+    if fix_0:
+        def fit_func(x, m):
+            return m*x + 0                                                                       # y = mx
+    else:
+        def fit_func(x, m, c):
+            return m*x + c                                                                       # or y = mx + c       
+        
+    
+    n_acq, ny, nx = cumulative_r3.shape
+    vel_r2  = np.zeros((ny, nx))                                                                # initiate to store velocities in 
+    cumulative_r3_smooth = np.zeros((n_acq, ny, nx))                                            # initiate to store smoothed displacments in
+    print(f"Starting to compute the velocity for each pixel: Completed row ", end = '')
+    for row_n in range(ny):
+        for col_n in range(nx):
+            params = curve_fit(fit_func, baselines_cs, cumulative_r3[:, row_n, col_n])          # fit line (defiend above) through time series for that point.  
+            if fix_0:
+                m = params[0]
+                cumulative_r3_smooth[:, row_n, col_n] = (m * baselines_cs)                      # predict displacements assuming velocity is always m
+            else:
+                m = params[0][0]
+                c = params[0][1]
+                cumulative_r3_smooth[:, row_n, col_n] = (m * baselines_cs) + c                  # predict displacements, assuing velocity is always m and disp at start of time series could be c
+            vel_r2[row_n, col_n] = m                                                            # velocity is just m
+        print(f"{row_n} ", end = '')
+        
+    vel_r2 = ma.array(vel_r2, mask = ma.getmask(cumulative_r3[0,]))                             # mask water/incoherence.  
+    cumulative_r3_smooth = ma.array(cumulative_r3_smooth, mask = ma.getmask(cumulative_r3))     # mask water/incoherence.  
+    return vel_r2, cumulative_r3_smooth
 
 #%%
 

@@ -45,7 +45,7 @@ def plot_points_interest(r3_data, points_interest, baselines_cs, acq_dates, titl
     y_highlands_predict = test_func(baselines_cs, params[0], params[1], params[2])                                  # predict points of line.  
     
     f, ax = plt.subplots(figsize = (10,6))
-    f.canvas.set_window_title(title)
+    f.canvas.manager.set_window_title(title)
     ax.set_title(title)
     ax.grid(True)
     ax.set_xlabel('Time (days)')
@@ -299,7 +299,7 @@ def component_plot(spatial_map, pixel_mask, timecourse, shape, title, shared = 0
     
     f, (ax_all) = plt.subplots(2, n_sources, figsize=(15,7))
     f.suptitle(title, fontsize=14)
-    f.canvas.set_window_title(title)
+    f.canvas.manager.set_window_title(title)
     for i in range(n_sources):    
         im = ax_all[0,i].imshow(spatial_maps_ma[i], cmap = ifg_colours_cent, vmin = np.min(spatial_map), vmax = np.max(spatial_map))
         ax_all[0,i].set_xticks([])
