@@ -4,6 +4,79 @@
 
 #%%
 
+
+
+def linear_delay_elveation_correction(dem, incremental_r3, debug_figure = False):
+    """Given a time series of ifgs and the dem, correct using a linear relationshiop between height and deformation.  
+    Inputs:
+        dem | array (or maybe ma)? | Assumes that nans are used for no data, so doesn't need to be a ma
+        incremental_r3 | rank 3 masked array | Incremental interferograsms, time first (e.g. 10 x 285, 230 for 10 ifgs)
+        debug_figure | boolean | If Ture, figure for each interferogram is produced.  
+        
+    Returns:
+        linear_corrections | rank 3 ma | correction for each interferogram.  SHould be added to ifgs to make correction.  
+        incremental_r3_corrected | rank 3 ma | each ifg, after correction has been applied.  
+    
+    History:
+        2022_02_02 | MEG | Written
+        
+    """
+    import numpy as np
+    import numpy.ma as ma
+    import matplotlib.pyplot as plt
+
+    from scipy.optimize import curve_fit
+    
+    def linear_fit(x, m, c):
+        return m*x + c                                                                       # y = mx + c       
+        
+    # first deal with masks
+    mask_dem = np.isnan(dem)
+    mask_ifg = ma.getmask(incremental_r3)[0]
+    mask_combined = np.invert(np.logical_and(np.invert(mask_dem), np.invert(mask_ifg)))
+    dem_ma = ma.array(dem, mask = mask_combined)
+    incremental_r3_combined_mask = ma.array(incremental_r3, mask = np.repeat(mask_combined[np.newaxis,], incremental_r3.shape[0], axis = 0 ))
+    
+    linear_corrections = np.zeros((incremental_r3_combined_mask.shape))
+    incremental_r3_corrected = np.zeros((incremental_r3_combined_mask.shape))
+    
+    
+    for ifg_n, ifg_inc in enumerate(incremental_r3_combined_mask):
+        
+        params = curve_fit(linear_fit, ma.compressed(dem_ma), ma.compressed(ifg_inc))          # fit line (defiend above) through time series for that point.  
+        m = params[0][0]
+        c = params[0][1]
+        linear_correction = (-1) * ((m * dem_ma) + c)
+        
+        ifg_inc_corrected = ifg_inc + linear_correction
+        
+        linear_corrections[ifg_n, ] = linear_correction
+        incremental_r3_corrected[ifg_n,] = ifg_inc_corrected
+        
+        
+        if debug_figure:
+            f, axes = plt.subplots(2,3)
+            axes[0,0].scatter(ma.compressed(dem_ma), ma.compressed(ifg_inc))
+            axes[0,1].scatter(ma.compressed(dem_ma), ma.compressed(linear_correction))
+            axes[0,2].scatter(ma.compressed(dem_ma), ma.compressed(ifg_inc_corrected))
+            vmin = ma.min(ma.concatenate((ma.ravel(ifg_inc), ma.ravel(linear_correction), ma.ravel(ifg_inc_corrected))))
+            vmax = ma.max(ma.concatenate((ma.ravel(ifg_inc), ma.ravel(linear_correction), ma.ravel(ifg_inc_corrected))))
+            axes[1,0].imshow(ifg_inc, vmin = vmin, vmax = vmax)
+            axes[1,1].imshow(linear_correction, vmin = vmin, vmax = vmax)
+            axes[1,2].imshow(ifg_inc_corrected, vmin = vmin, vmax = vmax)
+            
+            title = ['Interferogram', 'Linear correction', 'Interferogram + linear_correction']
+            for ax_n, ax in enumerate(axes[0,]):
+                ax.set_title(title[ax_n])
+                ax.axhline(0)
+        
+    linear_corrections = ma.array(linear_corrections, mask = ma.getmask(incremental_r3_combined_mask))
+    incremental_r3_corrected = ma.array(incremental_r3_corrected, mask = ma.getmask(incremental_r3_combined_mask))
+            
+    return linear_corrections, incremental_r3_corrected
+
+#%%
+
 def cum_to_vel(cumulative_r3, baselines_cs, fix_0 = True):
     """ Given a rank 3 of cumulative displacements, solve for the velocity (a rank 2),
     and the smoothed cumulative displacements (i.e. the velocity * temporal baseline for each ifg.  Assumes constant velocity through time!
