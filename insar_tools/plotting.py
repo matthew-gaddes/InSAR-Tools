@@ -11,6 +11,75 @@ A collection of functions for plotting synthetic interferograms
 #%%
 
 
+def xticks_every_nmonths(ax_to_update, day0_date, time_values, include_tick_labels, n_months = 3):
+    """Given an axes, update the xticks so the major ones are the 1st of every n months (e.g. if every 3, would be: jan/april/july/october).  
+    
+    Inputs:
+        ax_to_update | matplotlib axes | the axes to update.  
+        day0_date | string | in form yyyymmdd
+        time_values | rank 1 array | cumulative temporal baselines, e.g. np.array([6,18, 30, 36, 48])
+        include_tick_labels | boolean | if True, tick labels are added to the ticks.  
+        n_months | int | x ticks are very n months.  e.g. 2, 3,4,6,12 (yearly)  Funny spacings (e.g. every 5) not tested.  
+    Returns:
+        updates axes
+    History:
+        2021_09_27 | MEG | Written
+        2022_02_17 | MEG | modify so can be monhtly spacing other than every 3 months.  
+    """
+    import numpy as np
+    import datetime as dt
+    
+    from dateutil.relativedelta import relativedelta                                                    # add 3 months and check not after end
+    import matplotlib.pyplot as plt
+    from matplotlib.ticker import AutoMinorLocator      
+
+    
+    xtick_label_angle = 315
+    
+    tick_labels_days = ax_to_update.get_xticks().tolist()                                                # get the current tick labels
+    day0_date_dt = dt.datetime.strptime(day0_date, "%Y%m%d")                                             # convert the day0 date (date of day number 0) to a datetime.  
+    dayend_date_dt = day0_date_dt +  dt.timedelta(int(time_values[-1]))                                  # the last time value is the number of days we have, so add this to day0 to get the end.  
+
+    # 1: find first tick date (the first of the jan/ april/jul /oct)                        
+    date_tick0 = day0_date_dt                                                                           
+    #while not ( (date_tick0.day) == 1 and (date_tick0.month == 1  or date_tick0.month == 4 or date_tick0.month == 7 or date_tick0.month == 10 )):           # i.e. not the 1st of the month, and not jan/apr/jul/oct
+    while not ( (date_tick0.day) == 1 and (date_tick0.month in (np.arange(0, 12, n_months) + 1))):           # i.e. not the 1st of the month, and not jan/apr/jul/oct
+        date_tick0 +=  dt.timedelta(1)                                                                                                                      # then add one day and keep going.  
+        
+    # 2: get all the other first of the quarters
+    ticks = {'datetimes' : [date_tick0],
+             'yyyymmdd'   : [],
+             'n_day'     : []}
+   
+    while ticks['datetimes'][-1] < (dayend_date_dt - relativedelta(months=+n_months)):                         # subtract 3 months to make sure we don't go one 3 month jump too far. 
+        ticks['datetimes'].append(ticks['datetimes'][-1] + relativedelta(months=+n_months))
+    
+    # 3: work out what day number each first of the quarter is.  
+    for tick_dt in ticks['datetimes']:                                                                   # find the day nubmers from this.             
+        ticks['yyyymmdd'].append(dt.datetime.strftime(tick_dt, "%Y/%m/%d"))
+        ticks['n_day'].append((tick_dt - day0_date_dt).days)
+        
+    # 4: Update the figure.  
+    ax_to_update.set_xticks(ticks['n_day'])                                                                   # apply major tick labels to the figure
+    minor_locator = AutoMinorLocator(3)                                                                       # there are three months in each quarter, so a minor tick every month
+    ax_to_update.xaxis.set_minor_locator(minor_locator)                                                       # add to figure.  
+    if include_tick_labels:
+        ax_to_update.set_xticklabels(ticks['yyyymmdd'], rotation = xtick_label_angle, ha = 'left')            # update tick labels, and rotate
+        plt.subplots_adjust(bottom=0.15)
+        ax_to_update.set_xlabel('Date')
+    else:
+        ax_to_update.set_xticklabels([])                                                                    # remove any tick lables if they aren't to be used.  
+    
+    # add vertical lines every year.  
+    for major_tick_n, datetime_majortick in enumerate(ticks['datetimes']):
+        if datetime_majortick.month == 1:
+            ax_to_update.axvline(x = ticks['n_day'][major_tick_n], color='k', alpha=0.1, linestyle='--')                          
+               
+
+
+#%%
+
+
 def plot_points_interest(r3_data, points_interest, baselines_cs, acq_dates, title = '', ylabel = 'm',
                          ylims = None):
     """ Given rank 3 data of incremental interferograms (e.g. n_images x height x width) and some points of interest (e.g. an xy pair), plot the cumulative time
@@ -39,10 +108,7 @@ def plot_points_interest(r3_data, points_interest, baselines_cs, acq_dates, titl
         """
         return c * x + (a * np.sin((2*np.pi *(1/b) * x)))
     
-    params, params_covariance = optimize.curve_fit(test_func, baselines_cs, np.cumsum(r3_data[:,points_interest['highlands'][1], 
-                                                                                                points_interest['highlands'][0]]), p0=[15, 365, 0.01])            # p0 is first guess at abc parameters for sinusoid (ie. 365 means suggesting it has an annual period)
-    
-    y_highlands_predict = test_func(baselines_cs, params[0], params[1], params[2])                                  # predict points of line.  
+
     
     f, ax = plt.subplots(figsize = (10,6))
     f.canvas.manager.set_window_title(title)
@@ -53,7 +119,13 @@ def plot_points_interest(r3_data, points_interest, baselines_cs, acq_dates, titl
     ax.axhline(0,c = 'k')
     for key, value in points_interest.items():
         ax.scatter(baselines_cs, np.cumsum(r3_data[:,value[1], value[0]]), label = key)              # plot each of hte points.  
-    ax.plot(baselines_cs, y_highlands_predict, c='k', label = 'Sinusoid + linear')                          # plot the line of best fit.  
+    try:
+        params, params_covariance = optimize.curve_fit(test_func, baselines_cs, np.cumsum(r3_data[:,points_interest['highlands'][1], 
+                                                                                                    points_interest['highlands'][0]]), p0=[15, 365, 0.01])            # p0 is first guess at abc parameters for sinusoid (ie. 365 means suggesting it has an annual period)
+        y_highlands_predict = test_func(baselines_cs, params[0], params[1], params[2])                                  # predict points of line.  
+        ax.plot(baselines_cs, y_highlands_predict, c='k', label = 'Sinusoid + linear')                          # plot the line of best fit.  
+    except:
+        print(f"Failed to find a highlands point to fit a ling of best fit to, but continuing anyway.  ")
     ax.legend()
     
     if ylims is not None:
