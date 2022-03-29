@@ -34,7 +34,7 @@ def xticks_every_nmonths(ax_to_update, day0_date, time_values, include_tick_labe
     
     from dateutil.relativedelta import relativedelta                                                    # add 3 months and check not after end
     import matplotlib.pyplot as plt
-    from matplotlib.ticker import AutoMinorLocator      
+
     
     def create_tick_labels_every_nmonths(day0_date_dt, dayend_date_dt, n_months = 1):
         """ Given a spacing of every n_months, get the dates and days since the first date for ticks every n_months.  
@@ -96,10 +96,10 @@ def xticks_every_nmonths(ax_to_update, day0_date, time_values, include_tick_labe
     else:
         ax_to_update.set_xticklabels([])                                                                    # remove any tick lables if they aren't to be used.  
     
-    # # add vertical lines every year.  
-    # for major_tick_n, datetime_majortick in enumerate(ticks['datetimes']):
-    #     if datetime_majortick.month == 1:                                                                       # if it's the january tick (i.e the 1st of the year)
-    #         ax_to_update.axvline(x = ticks['n_day'][major_tick_n], color='k', alpha=0.1, linestyle='--')                          
+    # add vertical lines every year.  
+    for major_tick_n, datetime_majortick in enumerate(ticks_major['datetimes']):
+        if datetime_majortick.month == 1:                                                                       # if it's the january tick (i.e the 1st of the year)
+            ax_to_update.axvline(x = ticks_major['n_day'][major_tick_n], color='k', alpha=0.1, linestyle='--')                          
                
 
 
