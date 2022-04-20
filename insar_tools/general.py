@@ -163,7 +163,6 @@ def r2_to_r3(ifgs_r2, mask):
     """
     import numpy as np
     import numpy.ma as ma
-    from small_plot_functions import col_to_ma
     
     n_ifgs = ifgs_r2.shape[0]
     ny, nx = col_to_ma(ifgs_r2[0,], mask).shape                                   # determine the size of an ifg when it is converter from being a row vector
@@ -391,7 +390,6 @@ def mask_ifgs(ph, mask_old, mask_new):
         mask_old | r2 boolean | old mask
         mask_new | r2 boolean | new mask
     """
-    from small_plot_functions import col_to_ma
     import numpy as np
     import numpy.ma as ma
 
@@ -442,3 +440,28 @@ def chronological_zipfile_list(path):
 
 
     quick_linegraph(temp_baselines)
+    
+#%%
+
+def col_to_ma(col, pixel_mask):
+    """ A function to take a column vector and a 2d pixel mask and reshape the column into a masked array.
+    Useful when converting between vectors used by BSS methods results that are to be plotted
+
+    Inputs:
+        col | rank 1 array |
+        pixel_mask | array mask (rank 2)
+
+    Outputs:
+        source | rank 2 masked array | colun as a masked 2d array
+
+    2017/10/04 | collected from various functions and placed here.
+
+    """
+    import numpy.ma as ma
+    import numpy as np
+
+    source = ma.array(np.zeros(pixel_mask.shape), mask = pixel_mask )
+    source.unshare_mask()
+    source[~source.mask] = col.ravel()
+    return source
+
